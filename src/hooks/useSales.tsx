@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -76,10 +75,30 @@ export const useSales = () => {
     }) => {
       if (!user) throw new Error('Usuario no autenticado');
 
-      // Generar número de venta
-      const { data: saleNumber } = await supabase.rpc('generate_sale_number', {
-        user_uuid: user.id
-      });
+      let saleNumber: string;
+      
+      try {
+        // Intentar generar número de venta usando RPC
+        const { data, error } = await supabase.rpc('generate_sale_number', {
+          user_uuid: user.id
+        });
+        
+        if (error) {
+          console.warn('Error calling generate_sale_number RPC:', error);
+          // Fallback: generar número localmente
+          saleNumber = await generateFallbackSaleNumber(user.id);
+        } else {
+          saleNumber = data;
+        }
+      } catch (error) {
+        console.warn('RPC function failed, using fallback:', error);
+        // Fallback: generar número localmente
+        saleNumber = await generateFallbackSaleNumber(user.id);
+      }
+
+      if (!saleNumber) {
+        throw new Error('No se pudo generar el número de venta');
+      }
 
       const total_amount = items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0);
 
@@ -126,6 +145,43 @@ export const useSales = () => {
       toast.error('Error al procesar la venta');
     },
   });
+
+  // Función de fallback para generar número de venta
+  const generateFallbackSaleNumber = async (userId: string): Promise<string> => {
+    try {
+      // Obtener el último número de venta del usuario
+      const { data: lastSale, error } = await supabase
+        .from('sales')
+        .select('sale_number')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Error fetching last sale:', error);
+        // Si falla, usar timestamp como fallback
+        return `V${Date.now().toString().slice(-6)}`;
+      }
+
+      let nextNumber = 1;
+      
+      if (lastSale && lastSale.length > 0) {
+        const lastNumber = lastSale[0].sale_number;
+        // Extraer número del formato V001, V002, etc.
+        const match = lastNumber.match(/^V(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1]) + 1;
+        }
+      }
+
+      // Generar el número con formato V001, V002, etc.
+      return `V${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      console.error('Fallback sale number generation failed:', error);
+      // Último fallback: usar timestamp
+      return `V${Date.now().toString().slice(-6)}`;
+    }
+  };
 
   return {
     sales,

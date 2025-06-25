@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   ShoppingCart, 
@@ -13,27 +12,29 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-interface SidebarProps {
-  activeSection: string;
-  onSectionChange: (section: string) => void;
-}
-
-const Sidebar = ({ activeSection, onSectionChange }: SidebarProps) => {
+const Sidebar = () => {
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'sales', label: 'Ventas', icon: ShoppingCart },
-    { id: 'inventory', label: 'Inventario', icon: Package },
-    { id: 'customers', label: 'Clientes', icon: Users },
-    { id: 'suppliers', label: 'Proveedores', icon: Truck },
-    { id: 'payments', label: 'Pagos', icon: CreditCard },
-    { id: 'settings', label: 'Configuración', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3, path: '/dashboard' },
+    { id: 'sales', label: 'Ventas', icon: ShoppingCart, path: '/sales' },
+    { id: 'inventory', label: 'Inventario', icon: Package, path: '/inventory' },
+    { id: 'customers', label: 'Clientes', icon: Users, path: '/customers' },
+    { id: 'suppliers', label: 'Proveedores', icon: Truck, path: '/suppliers' },
+    { id: 'payments', label: 'Pagos', icon: CreditCard, path: '/payments' },
+    { id: 'settings', label: 'Configuración', icon: Settings, path: '/settings' },
   ];
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
   };
 
   return (
@@ -53,12 +54,12 @@ const Sidebar = ({ activeSection, onSectionChange }: SidebarProps) => {
       <nav className="p-4 space-y-2">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = activeSection === item.id;
+          const isActive = location.pathname === item.path || (location.pathname === '/' && item.id === 'dashboard');
           
           return (
             <button
               key={item.id}
-              onClick={() => onSectionChange(item.id)}
+              onClick={() => handleNavigation(item.path)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 text-left group ${
                 isActive
                   ? 'bg-primary-50 text-primary-700 shadow-sm'

@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -17,6 +16,14 @@ export default {
 			screens: {
 				'2xl': '1400px'
 			}
+		},
+		screens: {
+			'xs': '475px',
+			'sm': '640px',
+			'md': '768px',
+			'lg': '1024px',
+			'xl': '1280px',
+			'2xl': '1536px'
 		},
 		extend: {
 			colors: {
@@ -137,6 +144,11 @@ export default {
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
 			},
+			spacing: {
+				'18': '4.5rem',
+				'88': '22rem',
+				'128': '32rem'
+			},
 			keyframes: {
 				'fade-in': {
 					'0%': { opacity: '0', transform: 'translateY(10px)' },
@@ -153,16 +165,31 @@ export default {
 				'pulse-subtle': {
 					'0%, 100%': { opacity: '1' },
 					'50%': { opacity: '0.8' }
+				},
+				'bounce-gentle': {
+					'0%, 100%': { transform: 'translateY(0)' },
+					'50%': { transform: 'translateY(-4px)' }
 				}
 			},
 			animation: {
 				'fade-in': 'fade-in 0.3s ease-out',
 				'slide-in': 'slide-in 0.3s ease-out',
 				'scale-in': 'scale-in 0.2s ease-out',
-				'pulse-subtle': 'pulse-subtle 2s infinite'
+				'pulse-subtle': 'pulse-subtle 2s infinite',
+				'bounce-gentle': 'bounce-gentle 1s ease-in-out infinite'
 			},
 			fontFamily: {
-				'sans': ['Inter', 'system-ui', 'sans-serif']
+				'sans': ['Outfit', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+				'display': ['Outfit', 'Inter', 'sans-serif']
+			},
+			fontSize: {
+				'2xs': ['0.625rem', { lineHeight: '0.75rem' }],
+				'responsive-xs': ['0.75rem', { lineHeight: '1rem' }],
+				'responsive-sm': ['0.875rem', { lineHeight: '1.25rem' }],
+				'responsive-base': ['1rem', { lineHeight: '1.5rem' }],
+				'responsive-lg': ['1.125rem', { lineHeight: '1.75rem' }],
+				'responsive-xl': ['1.25rem', { lineHeight: '1.75rem' }],
+				'responsive-2xl': ['1.5rem', { lineHeight: '2rem' }]
 			}
 		}
 	},
