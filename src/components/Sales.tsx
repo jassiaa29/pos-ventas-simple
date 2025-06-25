@@ -8,64 +8,105 @@ import {
   CreditCard, 
   DollarSign,
   Receipt,
-  Search
+  Search,
+  Loader2
 } from 'lucide-react';
+import { useProducts } from '@/hooks/useProducts';
+import { useSales } from '@/hooks/useSales';
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  stock: number;
+}
 
 const Sales = () => {
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
-  const products = [
-    { id: 1, name: 'Smartphone Galaxy', price: 299.99, stock: 15, category: 'Electrónicos' },
-    { id: 2, name: 'Laptop Dell Inspiron', price: 799.99, stock: 8, category: 'Computadoras' },
-    { id: 3, name: 'Auriculares Sony', price: 99.99, stock: 25, category: 'Audio' },
-    { id: 4, name: 'Tablet iPad', price: 399.99, stock: 12, category: 'Tablets' },
-    { id: 5, name: 'Monitor Samsung 24"', price: 299.99, stock: 10, category: 'Monitores' },
-    { id: 6, name: 'Teclado Mecánico', price: 89.99, stock: 20, category: 'Accesorios' },
-  ];
+  const { products, isLoading: loadingProducts } = useProducts();
+  const { createSale } = useSales();
 
   const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase())
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    product.stock > 0 &&
+    product.status === 'active'
   );
 
-  const addToCart = (product) => {
+  const addToCart = (product: any) => {
     const existingItem = cart.find(item => item.id === product.id);
     if (existingItem) {
-      setCart(cart.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
+      if (existingItem.quantity < product.stock) {
+        setCart(cart.map(item =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        ));
+      }
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      setCart([...cart, { 
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        quantity: 1,
+        stock: product.stock
+      }]);
     }
   };
 
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = (id: string, newQuantity: number) => {
+    const item = cart.find(item => item.id === id);
+    if (!item) return;
+
     if (newQuantity <= 0) {
       setCart(cart.filter(item => item.id !== id));
-    } else {
+    } else if (newQuantity <= item.stock) {
       setCart(cart.map(item =>
         item.id === id ? { ...item, quantity: newQuantity } : item
       ));
     }
   };
 
-  const removeFromCart = (id) => {
+  const removeFromCart = (id: string) => {
     setCart(cart.filter(item => item.id !== id));
   };
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const processSale = () => {
+  const processSale = async () => {
     if (cart.length === 0) return;
     
-    // Simular procesamiento de venta
-    alert(`Venta procesada exitosamente!\nTotal: $${total.toFixed(2)}\nMétodo de pago: ${paymentMethod === 'cash' ? 'Efectivo' : 'Tarjeta'}`);
-    setCart([]);
+    const items = cart.map(item => ({
+      product_id: item.id,
+      quantity: item.quantity,
+      unit_price: item.price
+    }));
+
+    try {
+      await createSale.mutateAsync({
+        items,
+        payment_method: paymentMethod
+      });
+      setCart([]);
+    } catch (error) {
+      console.error('Error processing sale:', error);
+    }
   };
+
+  if (loadingProducts) {
+    return (
+      <div className="p-6 animate-fade-in">
+        <div className="flex items-center justify-center min-h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-secondary-600">Cargando productos...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 animate-fade-in">
@@ -87,37 +128,47 @@ const Sales = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="border border-secondary-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
-                  onClick={() => addToCart(product)}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <h3 className="font-medium text-secondary-900 group-hover:text-primary-600 transition-colors">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm text-secondary-500">{product.category}</p>
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-8">
+                <ShoppingCart className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
+                <p className="text-secondary-500">No hay productos disponibles</p>
+                <p className="text-sm text-secondary-400 mt-1">
+                  {products.length === 0 ? 'Agrega productos al inventario' : 'Prueba con diferentes términos de búsqueda'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="border border-secondary-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
+                    onClick={() => addToCart(product)}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-secondary-900 group-hover:text-primary-600 transition-colors">
+                          {product.name}
+                        </h3>
+                        <p className="text-sm text-secondary-500">{product.category?.name || 'Sin categoría'}</p>
+                      </div>
+                      <Plus className="w-5 h-5 text-secondary-400 group-hover:text-primary-600 transition-colors" />
                     </div>
-                    <Plus className="w-5 h-5 text-secondary-400 group-hover:text-primary-600 transition-colors" />
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-secondary-900">
+                        ${product.price}
+                      </span>
+                      <span className={`text-sm ${
+                        product.stock > 10 ? 'text-success-600' : 
+                        product.stock > 5 ? 'text-warning-600' : 'text-destructive-600'
+                      }`}>
+                        Stock: {product.stock}
+                      </span>
+                    </div>
                   </div>
-                  
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-secondary-900">
-                      ${product.price}
-                    </span>
-                    <span className={`text-sm ${
-                      product.stock > 10 ? 'text-success-600' : 
-                      product.stock > 5 ? 'text-warning-600' : 'text-destructive-600'
-                    }`}>
-                      Stock: {product.stock}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -157,7 +208,8 @@ const Sales = () => {
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-6 h-6 rounded-full bg-secondary-200 hover:bg-secondary-300 flex items-center justify-center transition-colors"
+                          disabled={item.quantity >= item.stock}
+                          className="w-6 h-6 rounded-full bg-secondary-200 hover:bg-secondary-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                         </button>
@@ -211,10 +263,20 @@ const Sales = () => {
 
                 <button
                   onClick={processSale}
-                  className="w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  disabled={createSale.isPending}
+                  className="w-full bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
-                  <Receipt className="w-4 h-4" />
-                  Procesar Venta
+                  {createSale.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <Receipt className="w-4 h-4" />
+                      Procesar Venta
+                    </>
+                  )}
                 </button>
               </>
             )}

@@ -8,16 +8,76 @@ import {
   Calendar,
   ChevronDown,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Loader2
 } from 'lucide-react';
+import { useProducts } from '@/hooks/useProducts';
+import { useSales } from '@/hooks/useSales';
+import { useCustomers } from '@/hooks/useCustomers';
 
 const Dashboard = () => {
   const [timeFilter, setTimeFilter] = useState('7days');
 
+  const { products, isLoading: loadingProducts } = useProducts();
+  const { sales, isLoading: loadingSales } = useSales();
+  const { customers, isLoading: loadingCustomers } = useCustomers();
+
+  // Calcular estadísticas
+  const totalSales = sales.reduce((sum, sale) => sum + sale.total_amount, 0);
+  const totalProducts = sales.reduce((sum, sale) => 
+    sum + (sale.sale_items?.reduce((itemSum, item) => itemSum + item.quantity, 0) || 0), 0
+  );
+  const totalTransactions = sales.length;
+  const totalCustomers = customers.length;
+
+  // Ventas recientes
+  const recentTransactions = sales.slice(0, 5).map(sale => ({
+    id: sale.id,
+    customer: sale.customer?.name || 'Cliente General',
+    amount: `$${sale.total_amount.toFixed(2)}`,
+    time: new Date(sale.sale_date).toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    }),
+    status: sale.status
+  }));
+
+  // Productos más vendidos
+  const topProducts = React.useMemo(() => {
+    const productSales = new Map();
+    
+    sales.forEach(sale => {
+      sale.sale_items?.forEach(item => {
+        const productName = item.product?.name || 'Producto desconocido';
+        if (productSales.has(productName)) {
+          const existing = productSales.get(productName);
+          productSales.set(productName, {
+            sales: existing.sales + item.quantity,
+            revenue: existing.revenue + item.subtotal
+          });
+        } else {
+          productSales.set(productName, {
+            sales: item.quantity,
+            revenue: item.subtotal
+          });
+        }
+      });
+    });
+
+    return Array.from(productSales.entries())
+      .map(([name, data]) => ({
+        name,
+        sales: data.sales,
+        revenue: `$${data.revenue.toFixed(0)}`
+      }))
+      .sort((a, b) => b.sales - a.sales)
+      .slice(0, 5);
+  }, [sales]);
+
   const stats = [
     {
       title: 'Ventas Totales',
-      value: '$12,847',
+      value: `$${totalSales.toFixed(2)}`,
       change: '+12.5%',
       isPositive: true,
       icon: DollarSign,
@@ -25,7 +85,7 @@ const Dashboard = () => {
     },
     {
       title: 'Productos Vendidos',
-      value: '1,247',
+      value: totalProducts.toString(),
       change: '+8.2%',
       isPositive: true,
       icon: ShoppingBag,
@@ -33,37 +93,34 @@ const Dashboard = () => {
     },
     {
       title: 'Transacciones',
-      value: '342',
+      value: totalTransactions.toString(),
       change: '+15.3%',
       isPositive: true,
       icon: TrendingUp,
       color: 'accent'
     },
     {
-      title: 'Clientes Nuevos',
-      value: '86',
-      change: '-2.1%',
-      isPositive: false,
+      title: 'Clientes',
+      value: totalCustomers.toString(),
+      change: '+2.1%',
+      isPositive: true,
       icon: Users,
       color: 'warning'
     }
   ];
 
-  const recentTransactions = [
-    { id: 1, customer: 'María González', amount: '$45.90', time: '10:30 AM', status: 'completed' },
-    { id: 2, customer: 'Carlos Ruiz', amount: '$128.50', time: '10:15 AM', status: 'completed' },
-    { id: 3, customer: 'Ana López', amount: '$67.25', time: '09:45 AM', status: 'pending' },
-    { id: 4, customer: 'Juan Pérez', amount: '$89.75', time: '09:30 AM', status: 'completed' },
-    { id: 5, customer: 'Sofia Martín', amount: '$156.00', time: '09:00 AM', status: 'completed' },
-  ];
+  const isLoading = loadingProducts || loadingSales || loadingCustomers;
 
-  const topProducts = [
-    { name: 'Smartphone Galaxy', sales: 45, revenue: '$13,500' },
-    { name: 'Laptop Dell', sales: 23, revenue: '$18,400' },
-    { name: 'Auriculares Sony', sales: 67, revenue: '$6,700' },
-    { name: 'Tablet iPad', sales: 34, revenue: '$13,600' },
-    { name: 'Monitor Samsung', sales: 28, revenue: '$8,400' },
-  ];
+  if (isLoading) {
+    return (
+      <div className="p-6 animate-fade-in">
+        <div className="flex items-center justify-center min-h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-secondary-600">Cargando dashboard...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6 animate-fade-in">
@@ -146,53 +203,69 @@ const Dashboard = () => {
             </button>
           </div>
           
-          <div className="space-y-4">
-            {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-4 hover:bg-secondary-50 rounded-lg transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center">
-                    <span className="text-primary-600 font-medium text-sm">
-                      {transaction.customer.split(' ').map(n => n[0]).join('')}
+          {recentTransactions.length === 0 ? (
+            <div className="text-center py-8">
+              <TrendingUp className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
+              <p className="text-secondary-500">No hay transacciones recientes</p>
+              <p className="text-sm text-secondary-400 mt-1">Las ventas aparecerán aquí</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentTransactions.map((transaction) => (
+                <div key={transaction.id} className="flex items-center justify-between p-4 hover:bg-secondary-50 rounded-lg transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-primary-50 rounded-full flex items-center justify-center">
+                      <span className="text-primary-600 font-medium text-sm">
+                        {transaction.customer.split(' ').map(n => n[0]).join('').substring(0, 2)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-secondary-900">{transaction.customer}</p>
+                      <p className="text-sm text-secondary-500">{transaction.time}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="text-right">
+                    <p className="font-semibold text-secondary-900">{transaction.amount}</p>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      transaction.status === 'completed' 
+                        ? 'bg-success-50 text-success-700' 
+                        : 'bg-warning-50 text-warning-700'
+                    }`}>
+                      {transaction.status === 'completed' ? 'Completado' : 'Pendiente'}
                     </span>
                   </div>
-                  <div>
-                    <p className="font-medium text-secondary-900">{transaction.customer}</p>
-                    <p className="text-sm text-secondary-500">{transaction.time}</p>
-                  </div>
                 </div>
-                
-                <div className="text-right">
-                  <p className="font-semibold text-secondary-900">{transaction.amount}</p>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                    transaction.status === 'completed' 
-                      ? 'bg-success-50 text-success-700' 
-                      : 'bg-warning-50 text-warning-700'
-                  }`}>
-                    {transaction.status === 'completed' ? 'Completado' : 'Pendiente'}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Top Products */}
         <div className="bg-white rounded-xl border border-secondary-200 p-6">
           <h2 className="text-lg font-semibold text-secondary-900 mb-6">Productos Destacados</h2>
           
-          <div className="space-y-4">
-            {topProducts.map((product, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-secondary-900 truncate">{product.name}</p>
-                  <p className="text-sm text-secondary-500">{product.sales} vendidos</p>
+          {topProducts.length === 0 ? (
+            <div className="text-center py-8">
+              <ShoppingBag className="w-12 h-12 text-secondary-300 mx-auto mb-3" />
+              <p className="text-secondary-500">No hay datos de ventas</p>
+              <p className="text-sm text-secondary-400 mt-1">Los productos más vendidos aparecerán aquí</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {topProducts.map((product, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-secondary-900 truncate">{product.name}</p>
+                    <p className="text-sm text-secondary-500">{product.sales} vendidos</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-secondary-900">{product.revenue}</p>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-secondary-900">{product.revenue}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -203,7 +276,10 @@ const Dashboard = () => {
             <h2 className="text-xl font-semibold">¿Listo para hacer una venta?</h2>
             <p className="text-primary-100 mt-1">Procesa transacciones de forma rápida y sencilla</p>
           </div>
-          <button className="bg-white text-primary-600 px-6 py-3 rounded-lg font-medium hover:bg-primary-50 transition-colors flex items-center gap-2">
+          <button 
+            onClick={() => window.location.hash = '#sales'}
+            className="bg-white text-primary-600 px-6 py-3 rounded-lg font-medium hover:bg-primary-50 transition-colors flex items-center gap-2"
+          >
             <ShoppingBag className="w-5 h-5" />
             Nueva Venta
           </button>
