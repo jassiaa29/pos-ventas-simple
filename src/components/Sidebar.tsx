@@ -8,8 +8,11 @@ import {
   Settings,
   BarChart3,
   CreditCard,
-  Store
+  Store,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 
 interface SidebarProps {
   activeSection: string;
@@ -17,6 +20,8 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ activeSection, onSectionChange }: SidebarProps) => {
+  const { user, signOut } = useAuth();
+
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'sales', label: 'Ventas', icon: ShoppingCart },
@@ -26,6 +31,10 @@ const Sidebar = ({ activeSection, onSectionChange }: SidebarProps) => {
     { id: 'payments', label: 'Pagos', icon: CreditCard },
     { id: 'settings', label: 'Configuración', icon: Settings },
   ];
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <div className="fixed left-0 top-0 h-full w-64 bg-white border-r border-secondary-200 z-40">
@@ -69,15 +78,28 @@ const Sidebar = ({ activeSection, onSectionChange }: SidebarProps) => {
 
       {/* User Profile */}
       <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-secondary-200">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary-50">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary-50 mb-3">
           <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center">
-            <span className="text-white font-medium text-sm">TU</span>
+            <span className="text-white font-medium text-sm">
+              {user?.email?.charAt(0).toUpperCase()}
+            </span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-secondary-900 truncate">Tu Usuario</p>
-            <p className="text-xs text-secondary-500">Administrador</p>
+            <p className="text-sm font-medium text-secondary-900 truncate">
+              {user?.email}
+            </p>
+            <p className="text-xs text-secondary-500">Usuario</p>
           </div>
         </div>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleSignOut}
+          className="w-full justify-start gap-2 text-secondary-600 hover:text-secondary-900"
+        >
+          <LogOut className="w-4 h-4" />
+          Cerrar Sesión
+        </Button>
       </div>
     </div>
   );
